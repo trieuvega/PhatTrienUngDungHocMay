@@ -5,7 +5,7 @@ import streamlit as st
 from PIL import Image
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.mobilenet import preprocess_input
-from tensorflow.keras.preprocessing import image
+# from tensorflow.keras.preprocessing import image
 import random
 
 @st.fragment
@@ -24,9 +24,35 @@ def AnimalRecognize():
         classes_dir.append(os.path.join(data, folderNames))
 
     st.title('AniReco')
-    st.subheader('Chọn một ảnh giống với con vật này')
-    uploaded_file = st.file_uploader('', type=['jpg', 'png', 'jpeg'], label_visibility='collapsed')
+    st.subheader('Cùng sử dụng AI so sánh con vật nhé')
+    hcol1, hcol2 = st.columns([2, 2])
+    
+    with hcol1:
+        st.markdown('''
+            - Nhấn nút :green["Browse files"] để tải lên một hình ảnh
+            - Chọn một loại con vật để so sánh
+        ''')
+    with hcol2:
+        uploaded_file = st.file_uploader('', type=['jpg', 'png', 'jpeg'], label_visibility='collapsed')
 
+    
+    # Add this dictionary with Vietnamese translations
+    vietnamese_classes = {
+        'dog': 'Chó',
+        'cat': 'Mèo',
+        'chicken': 'Gà',
+        'pig': 'Heo',
+        'duck': 'Vịt',
+        'butterfly': 'Bướm',
+        'elephant': 'Voi',
+        'horse': 'Ngựa',
+        'sheep': 'Cừu',
+        'spider': 'Nhện',
+        'squirrel': 'Sóc',
+        'cow': 'Bò',
+        # Add more translations as needed
+    }
+        
     def classify_image(image):
         # Tiền xử lý hình ảnh và dự đoán
         image = preprocess_image(image, image_shape)
@@ -42,47 +68,43 @@ def AnimalRecognize():
         img = np.array(img) / 255.0
         img = img[np.newaxis, ...]
         return img
+    
+    def choose_random_image(option):
+        # random_class = random.choice(option)
+        random_image = random.choice(os.listdir(os.path.join(data, option)))
+        image_path = os.path.join(data, option, random_image)
+        img = Image.open(image_path)
+        st.session_state.reference_image = img.resize(IMAGE_SIZE)
+        st.session_state.reference_class = option
 
+    st.markdown(":blue[Chọn một loại con vật để lấy ảnh tham chiếu]")
+    option = st.selectbox(
+        "Chọn loại con vật để so sánh",
+        classes,
+        label_visibility='collapsed',
+    )
     # Define a fixed size for both images
-    IMAGE_SIZE = (300, 300)
+    IMAGE_SIZE = (800, 800)
 
     # Adjust the ratio as needed, e.g., [3, 2] for a wider left column
-    col1, col2, col3 = st.columns([2, 2, 3])
+    icol1, icol2, icol3 = st.columns([2, 2, 3])
 
-    with col1:
-        def choose_random_image():
-            random_class = random.choice(classes)
-            random_image = random.choice(os.listdir(os.path.join(data, random_class)))
-            image_path = os.path.join(data, random_class, random_image)
-            img = Image.open(image_path)
-            st.session_state.reference_image = img.resize(IMAGE_SIZE)
-            st.session_state.reference_class = random_class
+    with icol1:
 
         if 'reference_image' not in st.session_state or 'reference_class' not in st.session_state:
-            choose_random_image()
+            choose_random_image(option)
         
         st.image(st.session_state.reference_image, caption='Hình ảnh tham chiếu', use_column_width=True)
 
-        if st.button('Chọn ảnh ngẫu nhiên') and st.session_state.reference_image:
-            choose_random_image()
+        if st.button('Chọn ảnh tham chiếu ngẫu nhiên') and st.session_state.reference_image:
+            choose_random_image(option)
             st.rerun(scope='fragment')
 
-    with col2:
-
+    with icol2:
         if uploaded_file is not None:
             img = Image.open(uploaded_file)
             st.session_state.user_image = img.resize(IMAGE_SIZE)
             st.image(st.session_state.user_image, caption='Hình ảnh đã chọn', use_column_width=True)
-
-    # Add this dictionary with Vietnamese translations
-    vietnamese_classes = {
-        'dogs': 'Chó',
-        'cats': 'Mèo',
-        'chickens': 'Gà',
-        'pigs': 'Heo',
-        'ducks': 'Vịt',
-        # Add more translations as needed
-    }
 
     @st.dialog("Cùng xem nhé!")
     def dialogVideo():
@@ -90,21 +112,24 @@ def AnimalRecognize():
         video_bytes = video_file.read()
         st.video(video_bytes, autoplay=True)
 
-    with col3:
-
+    with icol3:
         if st.button('Nhận dạng và So sánh'):
             if uploaded_file is None:
                 st.warning('Vui lòng chọn một hình ảnh trước khi nhận dạng.')
             else:
                 user_class = classify_image(np.array(st.session_state.user_image))
                 reference_class = st.session_state.reference_class
+                vietnamese_class = vietnamese_classes.get(user_class, user_class)
+                vietnamese_reference_class = vietnamese_classes.get(reference_class, reference_class)
+
+                st.markdown(f"Hình ảnh bạn chọn là :green[{vietnamese_class}]")
+                st.markdown(f"Hình ảnh tham chiếu là :blue[{vietnamese_reference_class}]")
                 
                 if user_class == reference_class:
-                    vietnamese_class = vietnamese_classes.get(user_class, user_class)
-                    st.success(f'Chúc mừng! Bạn đã chọn đúng loại. Đây là một con {vietnamese_class}.')
+                    st.success('Chúc mừng! Bạn đã chọn đúng loại.')
                     st.button("Cùng xem video con vật này nhé!", on_click=dialogVideo)
                 else:
-                    st.error('Ôi không, sai rồi. Hãy chọn lại ảnh ngẫu nhiên khác hoặc chọn một ảnh khác.')
+                    st.error(f'Ôi không, sai rồi.')
 
 def main_app():
     AnimalRecognize()
